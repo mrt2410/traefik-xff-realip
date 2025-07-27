@@ -1,4 +1,4 @@
-package traefik_real_ip
+package traefik_xff_realip
 
 import (
 	"context"
@@ -15,33 +15,33 @@ const (
 
 // Config the plugin configuration.
 type Config struct {
-	   ExcludedNets []string `json:"excludednets,omitempty" toml:"excludednets,omitempty" yaml:"excludednets,omitempty"`
-	   CleanXFF     bool     `json:"cleanxff,omitempty" toml:"cleanxff,omitempty" yaml:"cleanxff,omitempty"`
+	ExcludedNets []string `json:"excludednets,omitempty" toml:"excludednets,omitempty" yaml:"excludednets,omitempty"`
+	CleanXFF     bool     `json:"cleanxff,omitempty" toml:"cleanxff,omitempty" yaml:"cleanxff,omitempty"`
 }
 
 // CreateConfig creates the default plugin configuration.
 func CreateConfig() *Config {
-	   return &Config{
-			   ExcludedNets: []string{},
-			   CleanXFF:     false,
-	   }
+	return &Config{
+		ExcludedNets: []string{},
+		CleanXFF:     false,
+	}
 }
 
 // RealIPOverWriter is a plugin that blocks incoming requests depending on their source IP.
 type RealIPOverWriter struct {
-	   next         http.Handler
-	   name         string
-	   ExcludedNets []*net.IPNet
-	   CleanXFF     bool
+	next         http.Handler
+	name         string
+	ExcludedNets []*net.IPNet
+	CleanXFF     bool
 }
 
 // New created a new Demo plugin.
 func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	   ipOverWriter := &RealIPOverWriter{
-			   next:     next,
-			   name:     name,
-			   CleanXFF: config.CleanXFF,
-	   }
+	ipOverWriter := &RealIPOverWriter{
+		next:     next,
+		name:     name,
+		CleanXFF: config.CleanXFF,
+	}
 
 	for _, v := range config.ExcludedNets {
 		_, excludedNet, err := net.ParseCIDR(v)
@@ -69,19 +69,19 @@ func (r *RealIPOverWriter) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		}
 	}
 
-	   if realIP == "" {
-			   realIP = req.Header.Get(cfConnectingIP)
-			   if r.CleanXFF {
-					   req.Header.Set(xForwardedFor, realIP)
-			   }
-	   }
+	if realIP == "" {
+		realIP = req.Header.Get(cfConnectingIP)
+		if r.CleanXFF {
+			req.Header.Set(xForwardedFor, realIP)
+		}
+	}
 
-	   req.Header.Set(xRealIP, realIP)
-	   if r.CleanXFF {
-			   req.Header.Set(xForwardedFor, realIP)
-	   }
+	req.Header.Set(xRealIP, realIP)
+	if r.CleanXFF {
+		req.Header.Set(xForwardedFor, realIP)
+	}
 
-	   r.next.ServeHTTP(rw, req)
+	r.next.ServeHTTP(rw, req)
 }
 
 func (r *RealIPOverWriter) excludedIP(s string) bool {

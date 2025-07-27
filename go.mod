@@ -1,3 +1,3 @@
-module github.com/soulbalz/traefik-real-ip
+module github.com/mrt2410/traefik-xff-realip
 
-go 1.13
+go 1.20
