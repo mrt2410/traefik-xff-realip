@@ -17,11 +17,6 @@ func TestNew(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := plugin.New(ctx, next, cfg, "traefik-real-ip")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	testCases := []struct {
 		header        string
 		desc          string
@@ -89,6 +84,11 @@ func TestNew(t *testing.T) {
 			}
 
 			req.Header.Set(test.header, test.xForwardedFor)
+			// For Cf-Connecting-Ip test case, set both headers
+			if test.header == "Cf-Connecting-Ip" {
+				req.Header.Set("X-Forwarded-For", "127.0.0.2") // excluded IP
+				req.Header.Set("Cf-Connecting-Ip", test.xForwardedFor)
+			}
 
 			handler.ServeHTTP(recorder, req)
 
