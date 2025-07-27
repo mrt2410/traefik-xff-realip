@@ -10,8 +10,9 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	cfg := plugin.CreateConfig()
-	cfg.ExcludedNets = []string{"127.0.0.1/24"}
+	   cfg := plugin.CreateConfig()
+	   cfg.ExcludedNets = []string{"127.0.0.1/24"}
+	   cfg.CleanXFF = true
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
@@ -21,49 +22,80 @@ func TestNew(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testCases := []struct {
-		header        string
-		desc          string
-		xForwardedFor string
-		expected      string
-	}{
-		{
-			header:        "X-Forwarded-For",
-			desc:          "don't forward",
-			xForwardedFor: "127.0.0.2",
-			expected:      "",
-		},
-		{
-			header:        "X-Forwarded-For",
-			desc:          "forward",
-			xForwardedFor: "10.0.0.1",
-			expected:      "10.0.0.1",
-		},
-		{
-			header:        "Cf-Connecting-Ip",
-			desc:          "forward",
-			xForwardedFor: "10.0.0.1",
-			expected:      "10.0.0.1",
-		},
-	}
+	   testCases := []struct {
+			   header        string
+			   desc          string
+			   xForwardedFor string
+			   expectedReal  string
+			   expectedXFF   string
+			   cleanXFF      bool
+	   }{
+			   {
+					   header:        "X-Forwarded-For",
+					   desc:          "don't forward, cleanxff true",
+					   xForwardedFor: "127.0.0.2",
+					   expectedReal:  "",
+					   expectedXFF:   "",
+					   cleanXFF:      true,
+			   },
+			   {
+					   header:        "X-Forwarded-For",
+					   desc:          "forward, cleanxff true",
+					   xForwardedFor: "10.0.0.1",
+					   expectedReal:  "10.0.0.1",
+					   expectedXFF:   "10.0.0.1",
+					   cleanXFF:      true,
+			   },
+			   {
+					   header:        "Cf-Connecting-Ip",
+					   desc:          "forward, cleanxff true",
+					   xForwardedFor: "10.0.0.1",
+					   expectedReal:  "10.0.0.1",
+					   expectedXFF:   "10.0.0.1",
+					   cleanXFF:      true,
+			   },
+			   {
+					   header:        "X-Forwarded-For",
+					   desc:          "forward, cleanxff false",
+					   xForwardedFor: "10.0.0.1",
+					   expectedReal:  "10.0.0.1",
+					   expectedXFF:   "10.0.0.1",
+					   cleanXFF:      false,
+			   },
+			   {
+					   header:        "X-Forwarded-For",
+					   desc:          "don't forward, cleanxff false",
+					   xForwardedFor: "127.0.0.2",
+					   expectedReal:  "",
+					   expectedXFF:   "127.0.0.2",
+					   cleanXFF:      false,
+			   },
+	   }
 
-	for _, test := range testCases {
-		test := test
-		t.Run(test.desc, func(t *testing.T) {
-			recorder := httptest.NewRecorder()
+	   for _, test := range testCases {
+			   test := test
+			   t.Run(test.desc, func(t *testing.T) {
+					   recorder := httptest.NewRecorder()
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+					   cfg.CleanXFF = test.cleanXFF
+					   handler, err := plugin.New(ctx, next, cfg, "traefik-real-ip")
+					   if err != nil {
+							   t.Fatal(err)
+					   }
 
-			req.Header.Set(test.header, test.xForwardedFor)
+					   req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost", nil)
+					   if err != nil {
+							   t.Fatal(err)
+					   }
 
-			handler.ServeHTTP(recorder, req)
+					   req.Header.Set(test.header, test.xForwardedFor)
 
-			assertHeader(t, req, "X-Real-Ip", test.expected)
-		})
-	}
+					   handler.ServeHTTP(recorder, req)
+
+					   assertHeader(t, req, "X-Real-Ip", test.expectedReal)
+					   assertHeader(t, req, "X-Forwarded-For", test.expectedXFF)
+			   })
+	   }
 }
 
 func assertHeader(t *testing.T, req *http.Request, key, expected string) {

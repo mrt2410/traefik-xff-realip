@@ -129,5 +129,6 @@ Supported configurations per body
 | Setting           | Allowed values      | Required    | Description |
 | :--               | :--                 | :--         | :--         |
 | excludednets      | []string            | No          | IP or IP range to exclude forward IP |
+| cleanxff          | bool                | No          | If true, overwrites X-Forwarded-For with the detected real IP |
 
 #
